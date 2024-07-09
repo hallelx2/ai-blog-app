@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Blog App</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* WebKit keyframes for the spinner animation */
+        @-webkit-keyframes rotate {
+            0% {
+                -webkit-transform: rotate(0deg);
+            }
+            100% {
+                -webkit-transform: rotate(360deg);
+            }
+        }
+
+        /* Standard keyframes for other browsers */
+        @keyframes rotate {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Spinner container */
+        .spinner {
+            width: 100px;
+            height: 100px;
+            margin: 110px auto 0;
+            border: 5px solid rgba(0, 0, 0, 0.1);
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            border-bottom-color: transparent;
+            border-right-color: transparent;
+            -webkit-transition: all 0.5s ease-in;
+            transition: all 0.5s ease-in;
+            -webkit-animation-name: rotate;
+            animation-name: rotate;
+            -webkit-animation-duration: 1.0s;
+            animation-duration: 1.0s;
+            -webkit-animation-iteration-count: infinite;
+            animation-iteration-count: infinite;
+            -webkit-animation-timing-function: linear;
+            animation-timing-function: linear;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class ="flex flex-col min-h-screen bg-gray-100 font-sans antialiased" >
+    <!--Navbar-->
+    <nav class="bg-blue-600 p-4 text-white flex justify-between">
+        <div>
+            <h1 class ="text-3xl font-bold"> AI Blog App</h1>
+        </div>
+        <div>
+            <a href="#" class="text-white hover:underline">Welcome {{user.username.title}}</a>
+            <a href="blog-list" class="text-white hover:underline px-4">All Blogs</a>
+            <a href="logout" class="text-white hover:underline">Logout</a>
+        </div>
+    </nav>
+
+    <!--Main Section-->
+    <div class="flex-grow container mx-auto mt-10 px-4 sm:px-0">
+        <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md transition-transform transform hover:scale-105 flex flex-col" >
+            <!--Introduction-->
+            <div class="text-center">
+                <h2 class="text-2xl font-semibold mb-4">Welcome to AI Blog App</h2>
+                <p class="text-gray-70">
+                    Generate High Quality Blog Articles from your youtube videos 
+                    using AI. Simply enter the link to the youtube video and watch magic happen
+                </p>
+            </div>
+            <br>
+
+            <!--Youtube Section-->
+            <div>
+                <h2 class="text-xl mb-4 font-semibold">Enter youtube Link</h2>
+                <div class="flex space-x-4">
+                    <input id="youtubelink" type="url" placeholder="Enter your Youtube Link..." class="flex-grow p-2 border border-blue-400 rounded-l-md shadow-md">
+                    <button id="generateBlogId" class="bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700 transition-colours">Generate</button>
+                </div>
+
+                <div style="display: none;" id="loading-circle" class="spinner">
+                    
+                </div>
+
+                 <!-- Generated Blog Section -->
+                  <section class="mt-10 flex-grow">
+                    <h2 class="text-xl mb-4 font-semibold"> Generated Blog Article</h2>
+                    <div id="blogContent" class="mt-2 text-gray space-y-4">
+                        <!--Section for loader and also the content-->
+                    </div>
+                  </section>
+            </div>
+    </div>
+    <footer class="text-center p-4 text-black mt-6 ">
+        Created with Love by <a class="text-gray  hover:underline" href="https://www.github.com/hallelx2">Hallebox</a>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@13.0.2/lib/marked.umd.min.js"></script>
+    <script>
+        document.getElementById("generateBlogId").addEventListener('click', async () => {
+            const youtubeLink = document.getElementById("youtubelink").value;
+            const blogContent = document.getElementById("blogContent");
+            const loadingCircle = document.getElementById('loading-circle');
+
+            if (youtubeLink) {
+                loadingCircle.style.display = 'block';
+                blogContent.innerHTML = '';
+
+                const endpointUrl = "/generate-blog";
+
+                try {
+                    const response = await fetch(endpointUrl, {
+                        method: "POST",
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ link: youtubeLink })
+                    });
+
+                    const data = await response.json();
+
+                    // Convert markdown to HTML
+                    const htmlContent = marked.parse(data.content);
+
+                    // Set the HTML content
+                    blogContent.innerHTML = htmlContent;
+
+                } catch (err) {
+                    console.error("Error Occurred: ", err);
+                    alert("Something went wrong. Please try again later.");
+                } finally {
+                    // Hide the loading indicator
+                    loadingCircle.style.display = 'none';
+                }
+            } else {
+                alert("Please enter a YouTube link")
+            }
+        });
+    </script>
+</body>
+</html>
