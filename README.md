@@ -3,6 +3,7 @@
 
 **Creator:** Halleluyah Oludele
 **Contact:** [here](mailto:halleuyaholudele@gmail.com)
+**Try it out at:** [AI Blog App](https://ai-blog-app-aye3.onrender.com)
 
 ## Overview
 ---
