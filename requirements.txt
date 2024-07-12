@@ -1,0 +1,7 @@
+django 
+google-generativeai
+youtube-transcript-api
+pytube
+assemblyai
+psycopg2-binary
+python-dotenv

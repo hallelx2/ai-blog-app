@@ -2,3 +2,4 @@ ai_blog_app/.env
 frontend
 ai_blog_app/db.sqlite3
 test.py
+Pipfile.lock
