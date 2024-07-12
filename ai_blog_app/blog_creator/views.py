@@ -4,94 +4,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
-from django.conf import settings
 from django.shortcuts import get_object_or_404
 
 import json
-import os
-
-from pytube import YouTube, extract
-from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
-import assemblyai as aai
-
-import google.generativeai as genai
 
 from .models import BlogPost
-
-### Helper Functions
-
-GOOGLE_API_KEY = settings.GOOGLE_API_KEY
-ASSEMBLY_AI_API_KEY = settings.ASSEMBLY_AI_API_KEY
-
-aai.settings.api_key = ASSEMBLY_AI_API_KEY
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# Function to get the youtube title
-def youtube_title(video_url):
-    try:
-        video = YouTube(video_url)
-        title = video.title
-        return title
-    except Exception as e:
-        print(f"Error getting video title: {e}")
-        return None
-
-def get_video_id(url):
-    try:
-        video_id = extract.video_id(url)
-        return video_id
-    except Exception as e:
-        print(f"Error extracting video ID: {e}")
-        return None
-
-def get_transcript(link):
-    try:
-        id = get_video_id(link)
-        if not id:
-            return None
-        transcript_json = YouTubeTranscriptApi.get_transcript(id)
-        transcript = ""
-        for text in transcript_json:
-            transcript += text['text']
-        return transcript
-    except (NoTranscriptFound, TranscriptsDisabled):
-        return None
-
-def download_audio(link):
-    try:
-        yt = YouTube(link)
-        audio_file = yt.streams.filter(only_audio=True).first()
-        audio_file_output = audio_file.download(output_path=settings.MEDIA_ROOT)
-        base, _ = os.path.splitext(audio_file_output)
-        
-        new_file = base + ".mp3"
-        os.rename(audio_file_output, new_file)
-        return new_file
-    except Exception as e:
-        print(f"Error downloading audio: {e}")
-        return None
-
-def get_transcript_from_audio(link):
-    audio_file = download_audio(link)
-    if audio_file:
-        transcriber = aai.Transcriber()
-        transcript = transcriber.transcribe(audio_file)
-        os.remove(audio_file)  # Delete the audio file after transcription
-        return transcript.text
-    else:
-        return None
-
-def get_youtube_or_audio_transcription(link):
-    transcript = get_transcript(link)
-    if not transcript:
-        transcript = get_transcript_from_audio(link)
-    return transcript
-
-def get_blog_content(transcript):
-    prompt = f"Generate a blog post for me based on the content of what is discussed in this youtube video's transcript: {transcript}"
-    model = genai.GenerativeModel('gemini-pro')
-    response = model.generate_content(prompt)
-    return response.text
+from .helpers import get_blog_content, youtube_title, get_youtube_or_audio_transcription
 
 @login_required()
 def index(request):
@@ -119,41 +37,45 @@ def generate_blog(request):
         try:
             data = json.loads(request.body)
             youtube_link = data["link"]
+            content_type = data["type"]
         except (KeyError, json.JSONDecodeError):
             return JsonResponse({"error": "Invalid data sent"}, status=400)
-        
+
         # Get video title
         title = youtube_title(youtube_link)
         if not title:
             return JsonResponse({"error": "Error getting video title"}, status=500)
-        
-        # Get the transcript
+
+        # Check if the blog post already exists for the given user and content type
+        if BlogPost.objects.filter(user=request.user, youtube_title=title, content_type=content_type).exists():
+            return JsonResponse({"error": f"Blog Post for this video already exists for the selected content type."}, status=400)
+
+        # Proceed to generate and save the blog post
         transcript = get_youtube_or_audio_transcription(youtube_link)
         if not transcript:
             return JsonResponse({"error": "Error getting transcript"}, status=500)
-        
-        # Generate the blog content using Gemini
-        blog_content = get_blog_content(transcript)
+
+        blog_content = get_blog_content(transcript, content_type)
         if not blog_content:
             return JsonResponse({"error": "Error generating blog content"}, status=500)
-        
-        # Save blog to the database
+
         new_blog_article = BlogPost.objects.create(
             user=request.user,
             youtube_title=title,
             youtube_url=youtube_link,
-            generated_content=transcript
+            content_type=content_type,
+            generated_content=blog_content
         )
         new_blog_article.save()
-        
-        # Return the blog article
+
         return JsonResponse({"content": blog_content}, status=200)
     else:
         return JsonResponse({"error": "Invalid request method"}, status=405)
+
     
 
 def blog_list(request):
-    blog_articles = BlogPost.objects.filter(user=request.user)
+    blog_articles = BlogPost.objects.filter(user=request.user).order_by("content_type", "-created_at")
     return render(request, "blogs.html", {"blog_articles": blog_articles})
 
 def blog_article_by_id(request, pk):

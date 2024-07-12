@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>AI Blog App</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
@@ -49,6 +50,21 @@
             -webkit-animation: spin 1s linear infinite; /* Safari */
             animation: spin 1s linear infinite;
         }
+
+        #blogContent {
+            word-wrap: break-word; /* Old CSS property, still supported */
+            word-break: break-all; /* Break words at any character to prevent overflow */
+            overflow-wrap: break-word; /* Standard property for modern browsers */
+            padding: 20px; /* Add some padding for better readability */
+            max-width: 100%; /* Ensure the container does not exceed its parent width */
+            box-sizing: border-box; /* Include padding in the element's total width and height */
+            background-color: #f9f9f9; /* Optional: background color for readability */
+            border: 1px solid #ddd; /* Optional: border for visual separation */
+            border-radius: 8px; /* Optional: rounded corners */
+        }
+
+
+
     </style>
 </head>
 <body class ="flex flex-col min-h-screen bg-gray-100 font-sans antialiased" >
@@ -82,6 +98,12 @@
                 <h2 class="text-xl mb-4 font-semibold">Enter youtube Link</h2>
                 <div class="flex space-x-4">
                     <input id="youtubelink" type="url" placeholder="Enter your Youtube Link..." class="flex-grow p-2 border border-blue-400 rounded-l-md shadow-md">
+                    <select id="contentType" title="Select content type" class="appearance-none bg-white border border-gray-300 shadow-sm py-2 px-4 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="blog">Blog Article</option>
+                        <option value="linkedin">LinkedIn Post</option>
+                        <option value="tweet">Tweet</option>
+                    </select>
+                      
                     <button id="generateBlogId" class="bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700 transition-colours">Generate</button>
                 </div>
 
@@ -106,8 +128,11 @@
     <script>
         document.getElementById("generateBlogId").addEventListener('click', async () => {
             const youtubeLink = document.getElementById("youtubelink").value;
+            const content_type = document.getElementById("contentType").value;
             const blogContent = document.getElementById("blogContent");
             const loadingCircle = document.getElementById('loading-circle');
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
             if (youtubeLink) {
                 loadingCircle.style.display = 'block';
@@ -119,10 +144,15 @@
                     const response = await fetch(endpointUrl, {
                         method: "POST",
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
                         },
-                        body: JSON.stringify({ link: youtubeLink })
+                        body: JSON.stringify({link: youtubeLink, type: content_type})
                     });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP Error. Status ${response.status}`)
+                    }
 
                     const data = await response.json();
 
@@ -134,7 +164,7 @@
 
                 } catch (err) {
                     console.error("Error Occurred: ", err);
-                    alert("Something went wrong. Please try again later.");
+                    alert("Something Went wrong. Try again Later");
                 } finally {
                     // Hide the loading indicator
                     loadingCircle.style.display = 'none';
